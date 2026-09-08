@@ -23,6 +23,7 @@ let db = loadDb();
 let state = { view: db.currentMemberId ? 'profile' : 'landing', authMode: 'login', adminTab: 'overview', logFilter: 'all' };
 let pendingAccount = null;
 let cloudWrite = Promise.resolve();
+let remoteUpdatedAt = '';
 
 function loadDb() {
   try { return { ...seed, ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return structuredClone(seed); }
@@ -43,8 +44,10 @@ function saveDb() {
 async function hydrateFromCloud() {
   if (!cloudClient) return;
   const localSession = db.currentMemberId;
-  const { data, error } = await cloudClient.from('alderia_state').select('data').eq('id', 'main').maybeSingle();
+  const { data, error } = await cloudClient.from('alderia_state').select('data,updated_at').eq('id', 'main').maybeSingle();
   if (error) return console.warn('Supabase is not ready:', error.message);
+  if (data?.updated_at === remoteUpdatedAt) return;
+  remoteUpdatedAt = data?.updated_at || remoteUpdatedAt;
   if (data?.data && Object.keys(data.data).length) {
     db = { ...seed, ...data.data, currentMemberId: localSession };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -149,3 +152,6 @@ function closeModal() { document.querySelector('#modalBackdrop').hidden = true; 
 document.querySelector('#modalBackdrop').addEventListener('click', e => { if (e.target.id === 'modalBackdrop') closeModal(); });
 render();
 hydrateFromCloud();
+setInterval(() => {
+  if (document.visibilityState === 'visible') hydrateFromCloud();
+}, 5000);
