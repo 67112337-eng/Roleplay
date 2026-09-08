@@ -28,7 +28,8 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 .switch-admin { border: 1px solid rgba(213,178,103,.5); padding: 8px 12px; color: var(--paper); background: transparent; border-radius: 3px; transition: .2s ease; }
 .switch-admin:hover { background: rgba(213,178,103,.16); border-color: var(--gold-bright); }
 .app-shell { min-height: 100vh; padding: 68px 4vw 48px; }
-.view { max-width: 1240px; margin: 0 auto; animation: reveal .45s ease both; }
+.view { max-width: 1240px; margin: 0 auto; }
+.view.view-enter { animation: reveal .45s ease both; }
 @keyframes reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .hero { min-height: calc(100vh - 68px); display: grid; place-items: center; position: relative; overflow: hidden; }
 .hero:before, .hero:after { content: ''; position: absolute; border: 1px solid rgba(59,35,25,.18); transform: rotate(45deg); }
