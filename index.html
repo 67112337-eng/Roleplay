@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2b1b17">
+  <title>อาณาจักรอัลเดรีย | Alderia Roleplay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="topbar" id="topbar">
+    <button class="brand-mini" data-action="go-home" aria-label="กลับหน้าหลัก"><span class="brand-mark">A</span><span>A L D E R I A</span></button>
+    <div class="topbar-actions">
+      <button class="switch-admin" data-action="show-admin-login">♜ <span>Admin Gate</span></button>
+    </div>
+  </header>
+
+  <main id="app" class="app-shell"></main>
+
+  <div class="toast-stack" id="toastStack"></div>
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" id="modalContent" role="dialog" aria-modal="true"></section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
