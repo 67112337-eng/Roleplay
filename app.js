@@ -1,5 +1,4 @@
 const DB_KEY = 'alderia-roleplay-v1';
-const ADMIN_PASSWORD = 'alderia';
 const placeholderAvatar = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 360"><rect width="300" height="360" fill="#d7c08a"/><circle cx="150" cy="125" r="67" fill="#75452d"/><path d="M72 130c8-88 145-114 169 0-30-24-110-25-169 0Z" fill="#382019"/><path d="M70 340c8-104 61-137 80-137s73 33 80 137" fill="#6d391f"/><circle cx="126" cy="126" r="7" fill="#2b1b17"/><circle cx="175" cy="126" r="7" fill="#2b1b17"/><path d="M125 167q25 16 50 0" fill="none" stroke="#2b1b17" stroke-width="5"/><path d="M20 25h260v310H20z" fill="none" stroke="#b78639" stroke-width="3"/></svg>`);
 const questArt = ['linear-gradient(135deg,#263d4a,#bd8c55)', 'linear-gradient(135deg,#452b34,#b65c45)', 'linear-gradient(135deg,#244735,#bca25a)'];
 const itemArt = ['linear-gradient(135deg,#51321e,#d6a84e)', 'linear-gradient(135deg,#263e56,#9bb9c4)', 'linear-gradient(135deg,#5c2937,#d28a89)', 'linear-gradient(135deg,#3d4b2a,#d7c675)'];
@@ -96,13 +95,13 @@ function bindView() {
 }
 function handleAction(e) {
   const action = e.currentTarget.dataset.action;
-  if (action === 'start') state.view = db.members.length ? (member()?.approved ? 'profile' : 'pending') : 'register';
+  if (action === 'start') state.view = member() ? (member().approved ? 'profile' : 'pending') : 'register';
   if (action === 'go-home') { state.view = 'landing'; saveDb(); }
   if (action === 'view-profile') state.view = 'profile';
   if (action === 'view-stats') state.view = 'stats';
   if (action === 'view-inventory') state.view = 'inventory';
   if (action === 'view-quests') state.view = 'quests';
-  if (action === 'show-admin-login') openAdminLogin();
+  if (action === 'show-admin-login') { state.view = 'admin'; state.adminTab = 'overview'; }
   if (action === 'add-stat') addStat(e.currentTarget.dataset.stat);
   if (action === 'accept-quest') acceptQuest(e.currentTarget.dataset.id);
   if (action === 'item-detail') openItem(Number(e.currentTarget.dataset.index));
@@ -131,7 +130,6 @@ function createQuest(e) { e.preventDefault(); const data = new FormData(e.target
 function settleQuest(qid, mid, complete) { const q = db.quests.find(x => x.id === qid); const m = db.members.find(x => x.id === mid); if (!q || !m) return; q.status = complete ? 'Completed' : 'Failed'; if (complete) { m.gold += q.rewardGold; m.availablePoints += q.rewardStats; if (q.rewardItem) m.inventory.push({ name: q.rewardItem, rarity: 'Quest Reward', description: `รางวัลจากภารกิจ ${q.title}`, image: '' }); m.completedQuests += 1; } log('admin', `Admin สรุปเควส ${q.title}: ${complete ? 'Complete' : 'Fail'} ให้ ${m.firstName}`); saveDb(); toast(complete ? 'มอบรางวัลภารกิจเรียบร้อย' : 'บันทึกภารกิจล้มเหลวแล้ว'); render(); }
 function openItem(index) { const item = member()?.inventory[index]; if (!item) return; openModal(`<button class="close-modal" data-action="close-modal">×</button><div class="eyebrow">Inventory record</div><h2>${esc(item.name)}</h2><img src="${imageValue(item.image, itemArt[index % itemArt.length])}" alt="" style="width:100%;max-height:220px;object-fit:cover;border:1px solid var(--gold)"><p><span class="tag">${esc(item.rarity)}</span></p><p class="hint">${esc(item.description)}</p>`); }
 function openAdminMember(id) { const m = db.members.find(x => x.id === id); if (!m) return; openModal(`<button class="close-modal" data-action="close-modal">×</button><div class="eyebrow">Member dossier</div><h2>${esc(m.firstName)} ${esc(m.lastName)}</h2><div class="meta-grid"><div><span>Age</span><strong>${m.age}</strong></div><div><span>Gender</span><strong>${esc(m.gender)}</strong></div><div><span>Gold</span><strong>${m.gold} ◈</strong></div><div><span>Class</span><strong>${esc(m.job)}</strong></div><div><span>Guild</span><strong>${esc(m.guild)}</strong></div><div><span>Rank</span><strong>${esc(m.rank)}</strong></div></div><button class="danger-btn" data-action="kick" data-id="${m.id}">เตะสมาชิก</button>`); }
-function openAdminLogin() { openModal(`<button class="close-modal" data-action="close-modal">×</button><div class="eyebrow">Restricted access</div><h2>Admin Gate</h2><p class="hint">สำหรับการสาธิต โปรดใช้รหัสผ่าน <strong>alderia</strong></p><form class="inline-form" id="adminLoginForm"><input name="password" type="password" placeholder="รหัสผ่าน Admin" required><button class="primary-btn">เข้าสู่ห้องบัญชาการ</button></form>`); document.querySelector('#adminLoginForm').addEventListener('submit', e => { e.preventDefault(); if (new FormData(e.target).get('password') === ADMIN_PASSWORD) { closeModal(); state.view = 'admin'; state.adminTab = 'overview'; render(); toast('ยินดีต้อนรับสู่ห้องบัญชาการ'); } else toast('รหัสผ่านไม่ถูกต้อง'); }); }
 function openModal(html) { document.querySelector('#modalContent').innerHTML = html; document.querySelector('#modalBackdrop').hidden = false; document.querySelectorAll('#modalContent [data-action]').forEach(btn => btn.addEventListener('click', handleAction)); }
 function closeModal() { document.querySelector('#modalBackdrop').hidden = true; }
 document.querySelector('#modalBackdrop').addEventListener('click', e => { if (e.target.id === 'modalBackdrop') closeModal(); });
