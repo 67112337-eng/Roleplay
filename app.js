@@ -43,6 +43,7 @@ function saveDb() {
 }
 async function hydrateFromCloud() {
   if (!cloudClient) return;
+  const currentView = state.view;
   const localSession = db.currentMemberId;
   const { data, error } = await cloudClient.from('alderia_state').select('data,updated_at').eq('id', 'main').maybeSingle();
   if (error) return console.warn('Supabase is not ready:', error.message);
@@ -51,7 +52,7 @@ async function hydrateFromCloud() {
   if (data?.data && Object.keys(data.data).length) {
     db = { ...seed, ...data.data, currentMemberId: localSession };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
-    state.view = db.currentMemberId ? 'profile' : 'landing';
+    state.view = currentView === 'landing' && db.currentMemberId ? 'profile' : currentView;
     render();
   } else {
     saveDb();
