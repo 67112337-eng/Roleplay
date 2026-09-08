@@ -19,7 +19,8 @@ const seed = {
   logs: [{ type: 'admin', text: 'Admin สร้างกระดานเควสเริ่มต้นของอาณาจักร', time: Date.now() }]
 };
 let db = loadDb();
-let state = { view: db.currentMemberId ? 'profile' : 'landing', adminTab: 'overview', logFilter: 'all' };
+let state = { view: db.currentMemberId ? 'profile' : 'landing', authMode: 'login', adminTab: 'overview', logFilter: 'all' };
+let authUser = null;
 
 function loadDb() {
   try { return { ...seed, ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return structuredClone(seed); }
@@ -34,11 +35,14 @@ function saveDb() {
 }
 async function hydrateFromCloud() {
   if (!cloudClient) return;
+  const sessionResult = await cloudClient.auth.getSession();
+  authUser = sessionResult.data.session?.user || null;
   const localSession = db.currentMemberId;
   const { data, error } = await cloudClient.from('alderia_state').select('data').eq('id', 'main').maybeSingle();
   if (error) return console.warn('Supabase is not ready:', error.message);
   if (data?.data && Object.keys(data.data).length) {
-    db = { ...seed, ...data.data, currentMemberId: localSession };
+    const accountMember = authUser ? data.data.members?.find(item => item.authId === authUser.id) : null;
+    db = { ...seed, ...data.data, currentMemberId: accountMember?.id || localSession };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
     state.view = db.currentMemberId ? 'profile' : 'landing';
     render();
@@ -60,7 +64,8 @@ function render() {
   bindView();
 }
 const views = {
-  landing: () => `<section class="hero view"><div class="hero-inner"><div class="eyebrow">The chronicles of a living realm</div><h1>ALDERIA<span>Roleplay Community</span></h1><div class="ornament">✦</div><p class="hero-sub">จงก้าวเข้าสู่อาณาจักรที่ทุกคำสาบานมีความหมาย และทุกการผจญภัยจะถูกจารึกไว้ในตำนาน</p><button class="start-seal" data-action="start">เริ่มต้น</button></div></section>`,
+  landing: () => `<section class="hero view"><div class="hero-inner"><div class="eyebrow">The chronicles of a living realm</div><h1>ALDERIA<span>Roleplay Community</span></h1><div class="ornament">✦</div><p class="hero-sub">จงก้าวเข้าสู่อาณาจักรที่ทุกคำสาบานมีความหมาย และทุกการผจญภัยจะถูกจารึกไว้ในตำนาน</p><button class="start-seal" data-action="start">เริ่มต้น</button><p class="hint" style="margin-top:28px">สมาชิกใหม่ต้องสร้างบัญชีด้วยอีเมลและรหัสผ่าน</p></div></section>`,
+  auth: () => `<section class="form-view view"><div class="scroll-panel"><div class="panel-head"><div><div class="eyebrow">Alderia account</div><h2>${state.authMode === 'register' ? 'สร้างบัญชีสมาชิก' : 'เข้าสู่บัญชีสมาชิก'}</h2><p>บัญชีของท่านใช้สำหรับเก็บตัวละครและความคืบหน้าเฉพาะตัว</p></div></div><form class="form-body" id="authForm"><div class="inline-form"><div class="field"><label for="authEmail">อีเมล</label><input id="authEmail" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></div><div class="field"><label for="authPassword">รหัสผ่าน</label><input id="authPassword" name="password" type="password" minlength="6" required autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร"></div><button class="primary-btn" type="submit">${state.authMode === 'register' ? 'สร้างบัญชี' : 'เข้าสู่ระบบ'}</button><div class="auth-note">${state.authMode === 'register' ? 'อีเมลหนึ่งบัญชีสมัครได้ครั้งเดียว' : 'ใช้บัญชีเดิมเพื่อกลับเข้าสู่ตัวละครของท่าน'}</div><button class="ghost-btn" type="button" data-action="toggle-auth">${state.authMode === 'register' ? 'มีบัญชีแล้ว? เข้าสู่ระบบ' : 'ยังไม่มีบัญชี? สร้างบัญชีใหม่'}</button><button class="ghost-btn" type="button" data-action="go-home">กลับหน้าหลัก</button></div></form></div></section>`,
   register: () => `<section class="form-view view"><div class="scroll-panel"><div class="panel-head"><div><div class="eyebrow">New character charter</div><h2>ลงทะเบียนตัวละคร</h2><p>เขียนชื่อของท่านลงในม้วนสัญญาแห่งอัลเดรีย</p></div><span class="status-badge">Open</span></div><form class="form-body" id="registerForm"><div class="form-grid"><div class="field"><label for="firstName">ชื่อ (First Name)</label><input id="firstName" name="firstName" required placeholder="เช่น Arin"></div><div class="field"><label for="lastName">นามสกุล (Last Name)</label><input id="lastName" name="lastName" required placeholder="เช่น Valebrook"></div><div class="field"><label for="age">อายุ (Age)</label><input id="age" name="age" type="number" min="13" max="999" required placeholder="21"></div><div class="field"><label for="gender">เพศ (Gender)</label><select id="gender" name="gender" required><option value="">เลือกเพศ</option><option>ชาย</option><option>หญิง</option><option>ไม่ระบุ</option></select></div><div class="field"><label for="job">ตำแหน่ง / อาชีพ (Class / Job)</label><select id="job" name="job" required><option value="">เลือกคลาส</option><option>นักรบ (Warrior)</option><option>จอมเวท (Mage)</option><option>โจร (Rogue)</option><option>นักบวช (Cleric)</option><option>นักล่า (Ranger)</option></select></div><div class="field"><label for="guild">สังกัด (Guild / Faction)</label><select id="guild" name="guild" required><option value="">เลือกสังกัด</option><option>สภาอรุณรุ่ง</option><option>กองอัศวินเหล็ก</option><option>ผู้เฝ้าป่าจันทรา</option><option>สมาคมพ่อค้า</option><option>อิสระ</option></select></div><div class="field full"><label>รูปภาพตัวละคร (Character Portrait)</label><div class="photo-drop"><img class="photo-preview" id="registerPreview" src="${placeholderAvatar}" alt="ตัวอย่างรูปตัวละคร"><input id="portrait" name="portrait" type="file" accept="image/*"><span class="file-name" id="fileName">เลือกรูปภาพเพื่ออัปโหลด</span></div></div></div><div class="form-actions"><button class="ghost-btn" type="button" data-action="go-home">ยกเลิก</button><button class="primary-btn" type="submit">ประทับตราสมัครตัวละคร</button></div></form></div></section>`,
   pending: () => `<section class="form-view view"><div class="scroll-panel" style="text-align:center"><div class="form-body" style="padding:70px 35px"><div class="eyebrow">Awaiting the council</div><div style="font-size:54px;margin:18px">⌛</div><h2 class="section-title">รอการยืนยันจาก Admin</h2><p class="hero-sub">ใบสมัครของท่านถูกส่งถึงสภาแล้ว เมื่อได้รับอนุมัติ ประตูสู่อาณาจักรจะเปิดออก</p><button class="ghost-btn" data-action="go-home">กลับหน้าหลัก</button><button class="primary-btn" data-action="show-admin-login" style="margin-left:8px">เปิด Admin Gate</button></div></div></section>`,
   profile: () => { const m = member(); if (!m) return views.landing(); return `<section class="dashboard view"><div class="dashboard-top"><div><div class="eyebrow">Adventurer's registry / main hub</div><h1>หอทะเบียนนักผจญภัย</h1></div><div class="user-chip"><img class="avatar round" src="${imageValue(m.image)}" alt=""><span>${esc(m.firstName)} ${esc(m.lastName)}</span></div></div><div class="parchment profile-card"><img class="profile-photo" src="${imageValue(m.image)}" alt="ภาพของ ${esc(m.firstName)}"><div class="profile-meta"><div class="eyebrow">Alderia identity card · No. ${m.id.slice(-4)}</div><h2>${esc(m.firstName)} ${esc(m.lastName)}</h2><span class="status-badge">${esc(m.rank || 'Registered Adventurer')}</span><div class="meta-grid"><div><span>อายุ</span><strong>${esc(m.age)} ปี</strong></div><div><span>เพศ</span><strong>${esc(m.gender)}</strong></div><div><span>ตำแหน่ง</span><strong>${esc(m.job)}</strong></div><div><span>สังกัด</span><strong>${esc(m.guild)}</strong></div><div><span>ทองคำ</span><strong>${m.gold.toLocaleString()} ◈</strong></div><div><span>แต้มพร้อมใช้</span><strong>${m.availablePoints} pts</strong></div></div><p class="hint">สถานะใบอนุญาต: ผ่านการรับรองโดยสภาอัลเดรีย</p></div></div><div class="nav-grid"><button class="nav-card" data-action="view-stats"><span class="icon">⚔</span><strong>Character Stats</strong><small>จัดสรรค่าสถานะของตัวละคร</small></button><button class="nav-card" data-action="view-inventory"><span class="icon">🎒</span><strong>Inventory & Treasury</strong><small>คลังอุปกรณ์และการเงิน</small></button><button class="nav-card" data-action="view-quests"><span class="icon">📜</span><strong>Quest Board</strong><small>ภารกิจที่กำลังรอผู้กล้า</small></button></div>${memberOverview()}</section>`; },
@@ -86,6 +91,7 @@ function questReviewRow(q, memberId) { const m = db.members.find(x => x.id === m
 function bindView() {
   document.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', handleAction));
   document.querySelector('#registerForm')?.addEventListener('submit', submitRegistration);
+  document.querySelector('#authForm')?.addEventListener('submit', submitAuth);
   document.querySelector('#transferForm')?.addEventListener('submit', transferGold);
   document.querySelector('#grantStatsForm')?.addEventListener('submit', grantStats);
   document.querySelector('#grantItemForm')?.addEventListener('submit', grantItem);
@@ -95,13 +101,14 @@ function bindView() {
 }
 function handleAction(e) {
   const action = e.currentTarget.dataset.action;
-  if (action === 'start') state.view = member() ? (member().approved ? 'profile' : 'pending') : 'register';
+  if (action === 'start') state.view = member() ? (member().approved ? 'profile' : 'pending') : 'auth';
   if (action === 'go-home') { state.view = 'landing'; saveDb(); }
   if (action === 'view-profile') state.view = 'profile';
   if (action === 'view-stats') state.view = 'stats';
   if (action === 'view-inventory') state.view = 'inventory';
   if (action === 'view-quests') state.view = 'quests';
   if (action === 'show-admin-login') { state.view = 'admin'; state.adminTab = 'overview'; }
+  if (action === 'toggle-auth') { state.authMode = state.authMode === 'login' ? 'register' : 'login'; }
   if (action === 'add-stat') addStat(e.currentTarget.dataset.stat);
   if (action === 'accept-quest') acceptQuest(e.currentTarget.dataset.id);
   if (action === 'item-detail') openItem(Number(e.currentTarget.dataset.index));
@@ -116,7 +123,8 @@ function handleAction(e) {
   if (action === 'close-modal') closeModal();
   render();
 }
-function submitRegistration(e) { e.preventDefault(); const data = new FormData(e.target); const image = document.querySelector('#registerPreview').src; const newMember = { id: `m${Date.now()}`, firstName: data.get('firstName'), lastName: data.get('lastName'), age: Number(data.get('age')), gender: data.get('gender'), job: data.get('job'), guild: data.get('guild'), image: image === placeholderAvatar ? '' : image, approved: false, createdAt: Date.now(), rank: 'Pending', gold: 0, availablePoints: 0, stats: { atk: 5, matk: 5, def: 5, spd: 5, will: 5 }, inventory: [], completedQuests: 0 }; db.members.push(newMember); db.pending.push(newMember.id); db.currentMemberId = newMember.id; log('member', `${newMember.firstName} ${newMember.lastName} สมัครตัวละครใหม่`); state.view = 'pending'; toast('ส่งใบสมัครถึงสภาแล้ว'); render(); }
+async function submitAuth(e) { e.preventDefault(); if (!cloudClient) return toast('ยังไม่ได้เชื่อมต่อ Supabase'); const data = new FormData(e.target); const email = data.get('email'); const password = data.get('password'); const result = state.authMode === 'register' ? await cloudClient.auth.signUp({ email, password }) : await cloudClient.auth.signInWithPassword({ email, password }); if (result.error) return toast(result.error.message); authUser = result.data.user; const existing = db.members.find(item => item.authId === authUser?.id); if (existing) { db.currentMemberId = existing.id; state.view = existing.approved ? 'profile' : 'pending'; saveDb(); render(); return; } if (state.authMode === 'register' && result.data.session) { state.view = 'register'; toast('สร้างบัญชีแล้ว กรุณาสร้างตัวละคร'); render(); } else { toast('ตรวจอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ'); } }
+function submitRegistration(e) { e.preventDefault(); const data = new FormData(e.target); const image = document.querySelector('#registerPreview').src; const newMember = { id: `m${Date.now()}`, authId: authUser?.id || '', email: authUser?.email || '', firstName: data.get('firstName'), lastName: data.get('lastName'), age: Number(data.get('age')), gender: data.get('gender'), job: data.get('job'), guild: data.get('guild'), image: image === placeholderAvatar ? '' : image, approved: false, createdAt: Date.now(), rank: 'Pending', gold: 0, availablePoints: 0, stats: { atk: 5, matk: 5, def: 5, spd: 5, will: 5 }, inventory: [], completedQuests: 0 }; db.members.push(newMember); db.pending.push(newMember.id); db.currentMemberId = newMember.id; log('member', `${newMember.firstName} ${newMember.lastName} สมัครตัวละครใหม่`); state.view = 'pending'; toast('ส่งใบสมัครถึงสภาแล้ว'); render(); }
 function approve(id) { const m = db.members.find(x => x.id === id); if (!m) return; m.approved = true; m.rank = 'Novice Adventurer'; db.pending = db.pending.filter(x => x !== id); log('admin', `Admin อนุมัติสมาชิก ${m.firstName} ${m.lastName}`); toast('อนุมัติสมาชิกแล้ว'); render(); }
 function reject(id) { const m = db.members.find(x => x.id === id); db.pending = db.pending.filter(x => x !== id); db.members = db.members.filter(x => x.id !== id); log('admin', `Admin ปฏิเสธใบสมัครของ ${m?.firstName || 'unknown'}`); toast('ปฏิเสธและลบใบสมัครแล้ว'); render(); }
 function kick(id) { const m = db.members.find(x => x.id === id); if (!m || !confirm(`ต้องการเตะ ${m.firstName} ${m.lastName} ออกจากระบบหรือไม่?`)) return; db.members = db.members.filter(x => x.id !== id); db.pending = db.pending.filter(x => x !== id); log('admin', `Admin เตะสมาชิก ${m.firstName} ${m.lastName}`); toast('นำสมาชิกออกจากระบบแล้ว'); render(); }
