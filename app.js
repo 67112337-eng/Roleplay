@@ -22,6 +22,7 @@ const seed = {
 let db = loadDb();
 let state = { view: db.currentMemberId ? 'profile' : 'landing', authMode: 'login', adminTab: 'overview', logFilter: 'all' };
 let pendingAccount = null;
+let cloudWrite = Promise.resolve();
 
 function loadDb() {
   try { return { ...seed, ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return structuredClone(seed); }
@@ -31,8 +32,13 @@ function saveDb() {
   localStorage.setItem(DB_KEY, JSON.stringify(db));
   if (cloudClient) {
     const sharedData = { ...db, currentMemberId: null };
-    cloudClient.from('alderia_state').upsert({ id: 'main', data: sharedData, updated_at: new Date().toISOString() });
+    cloudWrite = cloudWrite.then(async () => {
+      const { error } = await cloudClient.from('alderia_state').upsert({ id: 'main', data: sharedData, updated_at: new Date().toISOString() });
+      if (error) console.error('Could not save shared state:', error.message);
+    });
+    return cloudWrite;
   }
+  return Promise.resolve();
 }
 async function hydrateFromCloud() {
   if (!cloudClient) return;
@@ -52,7 +58,7 @@ function member() { return db.members.find(item => item.id === db.currentMemberI
 function esc(value = '') { return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[char])); }
 function imageValue(value, fallback = placeholderAvatar) { return value || fallback; }
 function now() { return new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); }
-function log(type, text) { db.logs.unshift({ type, text, time: Date.now() }); saveDb(); }
+function log(type, text) { db.logs.unshift({ type, text, time: Date.now() }); return saveDb(); }
 function toast(text) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = text; document.querySelector('#toastStack').appendChild(el); setTimeout(() => el.remove(), 3200); }
 function fileToDataUrl(input, callback) { const file = input.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => callback(reader.result, file.name); reader.readAsDataURL(file); }
 
