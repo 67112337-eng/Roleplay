@@ -45,6 +45,7 @@ function saveDb() {
 }
 async function hydrateFromCloud() {
   if (!cloudClient) return;
+  if (document.activeElement?.closest('#app form')) return;
   const currentView = state.view;
   const localSession = db.currentMemberId;
   const { data, error } = await cloudClient.from('alderia_state').select('data,updated_at').eq('id', 'main').maybeSingle();
